@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.NewsMapper">
+       <select id="loadArticleList" resultType="com.itheima.entity.News">
+        SELECT  *  FROM `news`
+        <where>
+            and status = 9
+            <!-- loadmore -->
+            <if test="type != null and type == 1">
+                and publish_time <![CDATA[<]]> #{dto.minBehotTime}
+            </if>
+            <if test="type != null and type == 2">
+                and publish_time <![CDATA[>]]> #{dto.maxBehotTime}
+            </if>
+            <if test="dto.tag != '__all__'">
+                and channel_id = #{dto.tag}
+            </if>
+        </where>
+        order by publish_time desc
+        limit #{dto.size}
+    </select>
+</mapper>
