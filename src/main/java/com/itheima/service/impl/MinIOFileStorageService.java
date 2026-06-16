@@ -1,7 +1,5 @@
 package com.itheima.service.impl;
 
-
-
 import com.itheima.config.MinIOConfig;
 import com.itheima.config.MinIOConfigProperties;
 import com.itheima.service.FileStorageService;
@@ -36,14 +34,9 @@ public class MinIOFileStorageService implements FileStorageService {
 
     private final static String separator = "/";
 
-    /**
-     * @param dirPath
-     * @param filename  yyyy/mm/dd/file.jpg
-     * @return
-     */
-    public String builderFilePath(String dirPath,String filename) {
+    public String builderFilePath(String dirPath, String filename) {
         StringBuilder stringBuilder = new StringBuilder(50);
-        if(!StringUtils.isEmpty(dirPath)){
+        if (!StringUtils.isEmpty(dirPath)) {
             stringBuilder.append(dirPath).append(separator);
         }
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
@@ -53,116 +46,95 @@ public class MinIOFileStorageService implements FileStorageService {
         return stringBuilder.toString();
     }
 
-    /**
-     *  上传图片文件
-     * @param prefix  文件前缀
-     * @param filename  文件名
-     * @param inputStream 文件流
-     * @return  文件全路径
-     */
     @Override
-    public String uploadImgFile(String prefix, String filename,InputStream inputStream) {
+    public String uploadImgFile(String prefix, String filename, InputStream inputStream) {
         String filePath = builderFilePath(prefix, filename);
         try {
             PutObjectArgs putObjectArgs = PutObjectArgs.builder()
                     .object(filePath)
                     .contentType("image/jpg")
-                    .bucket(minIOConfigProperties.getBucket()).stream(inputStream,inputStream.available(),-1)
+                    .bucket(minIOConfigProperties.getBucket()).stream(inputStream, inputStream.available(), -1)
                     .build();
             minioClient.putObject(putObjectArgs);
             StringBuilder urlPath = new StringBuilder(minIOConfigProperties.getReadPath());
-            urlPath.append(separator+minIOConfigProperties.getBucket());
+            urlPath.append(separator + minIOConfigProperties.getBucket());
             urlPath.append(separator);
             urlPath.append(filePath);
             return urlPath.toString();
-        }catch (Exception ex){
-            log.error("minio put file error.",ex);
+        } catch (Exception ex) {
+            log.error("minio put file error.", ex);
             throw new RuntimeException("上传文件失败");
         }
     }
 
-    /**
-     *  上传html文件
-     * @param prefix  文件前缀
-     * @param filename   文件名
-     * @param inputStream  文件流
-     * @return  文件全路径
-     */
     @Override
-    public String uploadHtmlFile(String prefix, String filename,InputStream inputStream) {
+    public String uploadHtmlFile(String prefix, String filename, InputStream inputStream) {
         String filePath = builderFilePath(prefix, filename);
         try {
             PutObjectArgs putObjectArgs = PutObjectArgs.builder()
                     .object(filePath)
                     .contentType("text/html")
-                    .bucket(minIOConfigProperties.getBucket()).stream(inputStream,inputStream.available(),-1)
+                    .bucket(minIOConfigProperties.getBucket()).stream(inputStream, inputStream.available(), -1)
                     .build();
             minioClient.putObject(putObjectArgs);
             StringBuilder urlPath = new StringBuilder(minIOConfigProperties.getReadPath());
-            urlPath.append(separator+minIOConfigProperties.getBucket());
+            urlPath.append(separator + minIOConfigProperties.getBucket());
             urlPath.append(separator);
             urlPath.append(filePath);
             return urlPath.toString();
-        }catch (Exception ex){
-            log.error("minio put file error.",ex);
-            ex.printStackTrace();
+        } catch (Exception ex) {
+            log.error("minio put file error.", ex);
             throw new RuntimeException("上传文件失败");
         }
     }
 
-    /**
-     * 删除文件
-     * @param pathUrl  文件全路径
-     */
     @Override
     public void delete(String pathUrl) {
-        String key = pathUrl.replace(minIOConfigProperties.getEndpoint()+"/","");
+        String key = pathUrl.replace(minIOConfigProperties.getEndpoint() + "/", "");
         int index = key.indexOf(separator);
-        String bucket = key.substring(0,index);
-        String filePath = key.substring(index+1);
-        // 删除Objects
+        String bucket = key.substring(0, index);
+        String filePath = key.substring(index + 1);
         RemoveObjectArgs removeObjectArgs = RemoveObjectArgs.builder().bucket(bucket).object(filePath).build();
         try {
             minioClient.removeObject(removeObjectArgs);
         } catch (Exception e) {
-            log.error("minio remove file error.  pathUrl:{}",pathUrl);
+            log.error("minio remove file error.  pathUrl:{}", pathUrl);
             e.printStackTrace();
         }
     }
 
-
-    /**
-     * 下载文件
-     * @param pathUrl  文件全路径
-     * @return  文件流
-     *
-     */
     @Override
-    public byte[] downLoadFile(String pathUrl)  {
-        String key = pathUrl.replace(minIOConfigProperties.getEndpoint()+"/","");
+    public byte[] downLoadFile(String pathUrl) {
+        String key = pathUrl.replace(minIOConfigProperties.getEndpoint() + "/", "");
         int index = key.indexOf(separator);
-        String bucket = key.substring(0,index);
-        String filePath = key.substring(index+1);
-        InputStream inputStream = null;
+        String bucket = key.substring(0, index);
+        String filePath = key.substring(index + 1);
+
+        // [Bug7修复] 获取失败时直接抛出异常，避免 inputStream 为 null 导致 NPE
+        InputStream inputStream;
         try {
-            inputStream = minioClient.getObject(GetObjectArgs.builder().bucket(minIOConfigProperties.getBucket()).object(filePath).build());
+            inputStream = minioClient.getObject(
+                    GetObjectArgs.builder().bucket(minIOConfigProperties.getBucket()).object(filePath).build());
         } catch (Exception e) {
-            log.error("minio down file error.  pathUrl:{}",pathUrl);
-            e.printStackTrace();
+            log.error("minio down file error.  pathUrl:{}", pathUrl);
+            throw new RuntimeException("下载文件失败: " + pathUrl, e);
         }
 
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        byte[] buff = new byte[100];
-        int rc = 0;
-        while (true) {
-            try {
-                if (!((rc = inputStream.read(buff, 0, 100)) > 0)) {
-                    break;
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
+        byte[] buff = new byte[4096];
+        int rc;
+        try {
+            while ((rc = inputStream.read(buff)) > 0) {
+                byteArrayOutputStream.write(buff, 0, rc);
             }
-            byteArrayOutputStream.write(buff, 0, rc);
+        } catch (IOException e) {
+            log.error("minio read file error. pathUrl:{}", pathUrl);
+            throw new RuntimeException("读取文件失败: " + pathUrl, e);
+        } finally {
+            try {
+                inputStream.close();
+            } catch (IOException ignored) {
+            }
         }
         return byteArrayOutputStream.toByteArray();
     }

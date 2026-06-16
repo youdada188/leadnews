@@ -15,7 +15,7 @@ import java.util.List;
 
 public class WmTokenInterceptor implements HandlerInterceptor {
 
-    // 白名单路径（无需token）
+    // 白名单路径（无需token），使用精确匹配
     private static final List<String> WHITE_LIST = Arrays.asList(
             "/login",
             "/register"
@@ -24,11 +24,9 @@ public class WmTokenInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String uri = request.getRequestURI();
-        System.out.println("拦截器检查URI: " + uri);  // 调试日志
 
-        // 白名单放行
-        if (WHITE_LIST.stream().anyMatch(uri::contains)) {
-            System.out.println("URI在白名单中，放行");
+        // 白名单精确匹配放行
+        if (WHITE_LIST.contains(uri)) {
             return true;
         }
 
@@ -50,7 +48,6 @@ public class WmTokenInterceptor implements HandlerInterceptor {
                 return false;
             }
 
-            // 安全转换 userId
             Object userIdObj = claimsBody.get("id");
             Integer userId = null;
             if (userIdObj instanceof Integer) {
@@ -77,8 +74,9 @@ public class WmTokenInterceptor implements HandlerInterceptor {
         return true;
     }
 
+    // postHandle 不再清理 ThreadLocal，改到 afterCompletion
     @Override
-    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
         WmThreadLocalUtil.clear();
     }
 }

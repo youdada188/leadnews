@@ -15,4 +15,6 @@ public class ArticleHomeDto {
     Integer size;
     // 频道ID
     String tag;
+    // 加载类型：1=加载更多(loadmore)，2=刷新(refresh)
+    Short type;
 }

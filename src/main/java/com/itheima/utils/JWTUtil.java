@@ -7,15 +7,14 @@ import java.util.*;
 
 public class JWTUtil {
 
-    // TOKEN的有效期一天（S）
+    // [Bug10修复] TOKEN的有效期为1小时（3600秒），原注释"一天"有误
     private static final int TOKEN_TIME_OUT = 3_600;
     // 加密KEY（Base64编码的字符串）
     private static final String TOKEN_ENCRY_KEY = "MDk4ZjZiY2Q0NjIxZDM3M2NhZGU0ZTgzMjYyN2I0ZjY";
     // 最小刷新间隔(S)
     private static final int REFRESH_TIME = 300;
 
-    // 生产ID
-    public static String getToken(Long id){
+    public static String getToken(Long id) {
         Map<String, Object> claimMaps = new HashMap<>();
         claimMaps.put("id", id);
         long currentTime = System.currentTimeMillis();
@@ -41,7 +40,7 @@ public class JWTUtil {
     public static Claims getClaimsBody(String token) {
         try {
             return getJws(token).getBody();
-        } catch (ExpiredJwtException e){
+        } catch (ExpiredJwtException e) {
             return null;
         }
     }
@@ -51,30 +50,25 @@ public class JWTUtil {
     }
 
     public static int verifyToken(Claims claims) {
-        if(claims==null){
+        if (claims == null) {
             return 1;
         }
         try {
-            claims.getExpiration().before(new Date());
-            if((claims.getExpiration().getTime()-System.currentTimeMillis()) > REFRESH_TIME*1000){
+            if ((claims.getExpiration().getTime() - System.currentTimeMillis()) > REFRESH_TIME * 1000) {
                 return -1;
             } else {
                 return 0;
             }
         } catch (ExpiredJwtException ex) {
             return 1;
-        } catch (Exception e){
+        } catch (Exception e) {
             return 2;
         }
     }
 
-    /**
-     * 修正点：使用 Base64.getDecoder().decode() 解码密钥
-     */
     public static SecretKey generalKey() {
         byte[] encodedKey = Base64.getDecoder().decode(TOKEN_ENCRY_KEY);
-        SecretKey key = new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
-        return key;
+        return new SecretKeySpec(encodedKey, 0, encodedKey.length, "AES");
     }
 
     public static void main(String[] args) {
