@@ -3,19 +3,21 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/leadnews?characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:sqlite:leadnews.db        # 数据库文件生成在项目启动目录下
+    driver-class-name: org.sqlite.JDBC
+    # SQLite 不需要 username / password
+    hikari:
+      maximum-pool-size: 1              # SQLite 不支持并发写，连接池必须限制为 1
+  sql:
+    init:
+      mode: always                      # 每次启动自动执行 schema.sql（IF NOT EXISTS 保证幂等）
   freemarker:
     template-loader-path: classpath:/templates/
 
-minio:
-  accessKey: minioadmin
-  secretKey: minioadmin
-  bucket: leadnews
-  endpoint: http://127.0.0.1:9000
-  readPath: http://127.0.0.1:9000
+# 本地文件存储（替换 MinIO）
+file:
+  upload-path: ./uploads                # 文件存储目录（相对于启动目录）
+  access-url: http://localhost:8081/uploads  # 文件访问 URL 前缀
 
 mybatis-plus:
   mapper-locations: classpath:/mapper/*.xml
